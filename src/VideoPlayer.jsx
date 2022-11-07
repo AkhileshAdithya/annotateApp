@@ -11,6 +11,7 @@ import Button from 'react-bootstrap/Button';
 import FloatingLabel from 'react-bootstrap/FloatingLabel';
 import { CSVLink, CSVDownload } from "react-csv";
 import { LinkContainer } from "react-router-bootstrap";
+import { useReactMediaRecorder } from "react-media-recorder";
 
 
 import vid0 from "./videos/videoMP4s/0.mp4";
@@ -40,7 +41,10 @@ export default function VideoPlayer() {
     valenceValid: false,
   });
 
-  const [annotations, setAnnotations] = useState([["time,valence,arousal"]]);
+  const [annotations, setAnnotations] = useState([["time,valence,arousal,videoID"]]);
+
+  const { status, startRecording, stopRecording, mediaBlobUrl } =
+    useReactMediaRecorder({ video: true, audio: true });
 
   const handleClose = () => {
     setShowModal(false);
@@ -63,12 +67,18 @@ export default function VideoPlayer() {
     
     if(playingID === orderedList.length - 1) {
       finishUp();
+      
     }
+    // comment below line if it breaks
+    stopRecording()
+    downloadVideo(mediaBlobUrl)
     //console.log("ENDED");
     setPlayingID((playingID + 1) % orderedList.length);
 
     console.log(orderedList[playingID])
     setCurrVideo(orderedList[playingID]);
+
+    startRecording()
   }
 
   const handleChange = (e) => {
@@ -79,7 +89,7 @@ export default function VideoPlayer() {
   };
 
   const checkInRange = (val) => {
-    if (val >= 0 && val <= 10) {
+    if (val >= 1 && val <= 9) {
       return true;
     }
     return false;
@@ -92,6 +102,37 @@ export default function VideoPlayer() {
     setEverythingDone(true);
 
   }
+
+  const getVideoID = (video) => {
+    if(video === vid0) {
+      return 0;
+    }
+    if(video === vid1) {
+      return 1;
+    }
+    if(video === vid2) {
+      return 2;
+    }
+    if(video === vid3) {
+      return 3;
+    }
+    if(video === vid4) {
+      return 4;
+    }
+    if(video === vid5) {
+      return 5;
+    }
+    if(video === vid6) {
+      return 6;
+    }
+    if(video === vid7) {
+      return 7;
+    }
+    if(video === vid8) {
+      return 8;
+    }
+  }
+    
     
 
   const handleSubmit = (e) => {
@@ -105,7 +146,7 @@ export default function VideoPlayer() {
       //console.log(form);
 
       //newAnnotation = [Date.now(), form.valence, form.arousal];
-      let newAnnotation = [Date.now(), form.valence, form.arousal];
+      let newAnnotation = [Date.now(), form.valence, form.arousal, `${getVideoID(currVideo)}`];
       setAnnotations([...annotations, newAnnotation]);
 
       handleClose();
@@ -141,6 +182,29 @@ export default function VideoPlayer() {
     setPlaying(false);
   }
 
+  //download video from blob_url
+  const downloadVideo = (blob_url) => {
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = blob_url;
+    a.download = "user_" + id + "video_"+ getVideoID(currVideo) +".mp4";
+    document.body.appendChild(a);
+    a.click();
+
+    window.URL.revokeObjectURL(blob_url);
+  };
+
+  //timer after every 30 seconds to show the modal
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if(playing) {
+        handleShow();
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [playing]);
+
+
   return (
     <>
       <Container>
@@ -162,6 +226,20 @@ export default function VideoPlayer() {
             </Button>
           </CSVLink>
         </Row>
+        <Row>
+          <Col>
+            {status}
+            {(status === "idle" || status === "stopped") && <Button variant="primary" onClick={startRecording}>
+              Start Recording
+            </Button>}
+            {status === "recording" && <Button variant="primary" onClick={stopRecording}>
+              Stop Recording
+            </Button>}
+            {status === "stopped" && <Button variant="primary" onClick={() => downloadVideo(mediaBlobUrl)}>
+              Download Video
+            </Button>}
+          </Col>
+        </Row>
       </Container>
       {!everythingDone && (<Modal show={showModal} onHide={handleClose} centered>
         <Modal.Header closeButton>
@@ -169,10 +247,10 @@ export default function VideoPlayer() {
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <FloatingLabel className="mb-3" controlId="AnnotateForm.Valence" label="Valence (1 - 10)">
+            <FloatingLabel className="mb-3" controlId="AnnotateForm.Valence" label="Valence (1 - 9)">
               <Form.Control type="text" name="valence" onChange={handleChange} value={form.valence} placeholder="1 - 10" isInvalid={!form.valenceValid} />
             </FloatingLabel>
-            <FloatingLabel className="mb-3" controlId="AnnotateForm.Arousal" label="Arousal (1 - 10)">
+            <FloatingLabel className="mb-3" controlId="AnnotateForm.Arousal" label="Arousal (1 - 9)">
               <Form.Control type="text" name="arousal" onChange={handleChange} value={form.arousal} placeholder="1 - 10" isInvalid={!form.arousalValid} />
             </FloatingLabel>
           </Form>
@@ -191,11 +269,11 @@ export default function VideoPlayer() {
           <Modal.Title>All done!</Modal.Title>
         </Modal.Header>
         <Modal.Footer>
-          <LinkContainer to="/review" state={{ name: `${form.name}`, id: `${id}` }}>
+          {/* <LinkContainer to="/review" state={{ name: `${form.name}`, id: `${id}` }}> */}
             <Button variant="primary">
               Close
             </Button>
-          </LinkContainer>
+          {/* </LinkContainer> */}
         </Modal.Footer>
       </Modal>)}
       {everythingDone && <CSVDownload data={annotations} filename={`${id}_annotation.csv`} target="_blank" />}
